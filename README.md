@@ -15,6 +15,22 @@
 
 ---
 
+## 📸 Screenshots & How It Works
+
+<p align="center">
+  <img src="docs/screenshots/mobile-trackpad.png" alt="Live Desktop Mirror & Trackpad Mode" width="260"/>
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/mobile-diagnostics.png" alt="Live Dual-Socket Network Diagnostics" width="260"/>
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/mobile-settings.png" alt="Quality Presets & PC Quick Actions" width="260"/>
+</p>
+
+1. **Live Screen & Trackpad** — Streams your Windows desktop over `/ws/stream` with `MAX_IN_FLIGHT=2` pacing while `/ws/control` keeps cursor, touch, and keyboard latency ultra-low.
+2. **Real-Time Diagnostics** — Tap the top telemetry pill to inspect Avg/P95/Min RTT, RFC 3550 jitter, FPS, bitrate, and dual-socket status.
+3. **Quality Presets & Quick Actions** — Switch between `Auto Adaptive`, `Ultra HD (1080p)`, `Balanced (720p)`, `Fast Mode (540p)`, or `Low Bandwidth (360p)`, and trigger Windows Taskbar/Lock actions remotely.
+
+---
+
 ## ✨ Highlights
 
 - **⚡ Dual-Socket Low-Latency Architecture (`/ws/control` + `/ws/stream`)**: Isolates `ping`/`pong`, mouse, touch, and keyboard events on `/ws/control` so input never queues behind binary JPEG frames.
