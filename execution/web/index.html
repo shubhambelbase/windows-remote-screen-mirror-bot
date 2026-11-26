@@ -1115,7 +1115,7 @@
       </div>
       <div id="diagTransportBanner" class="diag-banner">
         <span>Dual Socket (/ws/control + /ws/stream)</span>
-        <span id="diagFlowMode">In-Flight ≤ 2</span>
+        <span id="diagFlowMode">In-Flight ≤ 4</span>
       </div>
       <div class="diag-grid">
         <div class="diag-box">
@@ -1707,7 +1707,7 @@
       const p95Idx = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
       const p95Rtt = sorted.length ? sorted[Math.max(0, p95Idx)] : latestRtt;
       const jitter = Math.round(rollingJitter);
-      const fps = lastDiagnostics.fps || frameCount;
+      const fps = Math.round(lastDiagnostics.fps || frameCount);
 
       pillText.textContent = `${avgRtt}ms • ${fps} FPS`;
       const profileName = (lastDiagnostics.profile || currentPreset || 'auto').toUpperCase();

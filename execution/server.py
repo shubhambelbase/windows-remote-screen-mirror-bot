@@ -412,8 +412,8 @@ async def _handle_ping_or_config(
             rect_state["last_check"] = time.monotonic()
 
 
-MAX_IN_FLIGHT_FRAMES = 2
-FRAME_ACK_TIMEOUT_S = 0.65
+MAX_IN_FLIGHT_FRAMES = 4
+FRAME_ACK_TIMEOUT_S = 0.45
 
 
 @app.websocket("/ws/control")
@@ -485,6 +485,11 @@ async def websocket_stream_endpoint(
 
     logger.info("Client connected to live stream")
     stream_controller.record_reconnect()
+    # Reset stale auto-degraded profile on fresh reconnect / link refresh
+    if not stream_controller.manual_override and stream_controller.profile_index < 2:
+        stream_controller.profile_index = 2
+        stream_controller.degrade_counter = 0
+        stream_controller.promote_counter = 0
 
     client_buffer = SingleSlotFrameBuffer()
     broadcaster.add_subscriber(client_buffer)

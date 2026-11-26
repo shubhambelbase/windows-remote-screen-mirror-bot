@@ -10,12 +10,12 @@ Real-time Windows desktop screen mirror and remote control system operated via T
   - `execution/win32_desktop.py`: Shared `threading.local()` `WinSta0\Default` desktop attachment with explicit handle cleanup.
 - **Streaming Pipeline:**
   - `SingleSlotFrameBuffer`: Latest-frame-only single-slot buffer per client preventing socket bufferbloat.
-  - `ScreenCaptureEngine` & `ScreenCaptureBroadcaster`: Thread-local `mss.MSS()` instances, CRC32 + cursor idle-frame skipping (`capture_frame_if_changed`, 1.5s keepalive), GDI cursor overlay, 32B binary header (`TGFR`), and per-worker `threading.Event` stop signals.
+  - `ScreenCaptureEngine` & `ScreenCaptureBroadcaster`: Thread-local `mss.MSS()` instances, CRC32 + cursor idle-frame skipping (`capture_frame_if_changed`, 0.5s keepalive), GDI cursor overlay, 32B binary header (`TGFR`), and per-worker `threading.Event` stop signals.
   - `AdaptiveStreamController`: Multi-profile controller (`excellent`, `good`, `moderate`, `poor`) with hysteresis and `manual_override` lock (cleared on `auto`).
 - **Input Pipeline:**
   - `InputController`: Virtual-screen multi-monitor bounds, module-level Win32 ctypes structs, `SendInput` with fallback, and safety release.
 - **Transport, Server & Bot:**
-  - `execution/server.py`: FastAPI + dual-WebSocket architecture (`/ws/stream` for `TGFR` frames capped at `MAX_IN_FLIGHT_FRAMES=2` via `frame_ack` backpressure; `/ws/control` dedicated to `ping`/`pong`, `config`, and inputs so control never queues behind video frames), constant-time `SECRET_KEY` auth, sliding-window rate guard, async `cmd` offloading, FastAPI `lifespan` cleanup, and monitor-aware `direct_touch` mapping.
+  - `execution/server.py`: FastAPI + dual-WebSocket architecture (`/ws/stream` for `TGFR` frames capped at `MAX_IN_FLIGHT_FRAMES=4` via `frame_ack` backpressure with auto-reset to `good` on fresh reconnect; `/ws/control` dedicated to `ping`/`pong`, `config`, and inputs), constant-time `SECRET_KEY` auth, sliding-window rate guard, async `cmd` offloading, FastAPI `lifespan` cleanup, and monitor-aware `direct_touch` mapping.
   - `execution/tunnel.py`: `CloudflareTunnel` with lowercase/interleaved log regex parsing, `is_alive()`, and `restart()`.
   - `execution/bot.py`: Fail-closed whitelist (`ALLOWED_USER_ID > 0`), async-offloaded screenshots & commands, `global_error_handler`.
   - `execution/main.py`: Unified supervisor with rotating logs (`logs/remote_studio.log`), `pythonw.exe` `os.devnull` stdio + `uvicorn(log_config=None)` safety, Win32 single-instance mutex + `.bot.pid`, Proactor `WinError 10054` suppression, and Cloudflare tunnel auto-reconnect watchdog.

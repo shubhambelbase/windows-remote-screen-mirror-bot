@@ -157,9 +157,14 @@ class AdaptiveStreamController:
 
         fps_diff = now - self.fps_window_start
         if fps_diff >= 1.0:
-            self.measured_fps = round(self.fps_counter / fps_diff, 1)
-            self.fps_counter = 0
-            self.fps_window_start = now
+            if fps_diff > 2.5:
+                # Reset stale window after idle pause instead of reporting fractional <1 FPS
+                self.fps_counter = 1
+                self.fps_window_start = now
+            else:
+                self.measured_fps = round(self.fps_counter / fps_diff, 1)
+                self.fps_counter = 0
+                self.fps_window_start = now
 
     def record_frame_dropped(self):
         """Records a frame dropped due to single-slot buffer overwrite."""

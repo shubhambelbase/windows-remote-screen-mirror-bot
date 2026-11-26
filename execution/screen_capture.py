@@ -503,7 +503,7 @@ class ScreenCaptureBroadcaster:
                 captured, new_sig = self.engine.capture_frame_if_changed(
                     last_sig=effective_sig,
                     last_emit_ts=last_emit_ts,
-                    max_idle_s=1.5,
+                    max_idle_s=0.5,
                     monitor_index=m,
                     quality=q,
                     scale=s,
