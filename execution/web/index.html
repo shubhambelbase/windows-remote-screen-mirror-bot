@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Windows Remote Studio</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #050810;
+      --surface: rgba(13, 19, 33, 0.88);
+      --surface-solid: #0f172a;
+      --surface-elevated: #162036;
+      --surface-hover: rgba(30, 41, 68, 0.92);
+      --surface-border: rgba(148, 163, 184, 0.14);
+      --surface-border-strong: rgba(148, 163, 184, 0.25);
+      --accent: #2563eb;
+      --accent-sky: #38bdf8;
+      --accent-gradient: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+      --accent-glow: rgba(14, 165, 233, 0.35);
+      --danger: #ef4444;
+      --danger-gradient: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+      --warning: #f59e0b;
+      --success: #10b981;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --trackpad-bg: #090e1a;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      width: 100vw;
+      position: fixed;
+      inset: 0;
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+
+    /* Top Navigation & Status Bar */
+    #topBar {
+      height: 50px;
+      background: var(--surface);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--surface-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px 0 12px;
+      z-index: 100;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+
+    .top-left, .top-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Live Telemetry Pill */
+    .telemetry-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(6, 10, 20, 0.72);
+      border: 1px solid var(--surface-border-strong);
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-sky);
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+      max-width: 58vw;
+      white-space: nowrap;
+    }
+    .telemetry-pill:active {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: rgba(56, 189, 248, 0.45);
+      transform: scale(0.96);
+    }
+
+    .pill-profile-tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .status-dot.online {
+      background: var(--success);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: status-pulse 2.2s infinite;
+    }
+    .status-dot.warning {
+      background: var(--warning);
+      box-shadow: 0 0 8px var(--warning);
+    }
+    @keyframes status-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65); }
+      70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* Quick Action Icon Buttons */
+    .icon-btn {
+      width: 35px;
+      height: 35px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid var(--surface-border);
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .icon-btn svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .icon-btn:active {
+      background: rgba(56, 189, 248, 0.18);
+      transform: scale(0.91);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #fff;
+    }
+    .icon-btn.active {
+      background: var(--accent-gradient);
+      border-color: rgba(125, 211, 252, 0.55);
+      color: #fff;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+
+    .zoom-badge {
+      position: absolute;
+      bottom: 1px;
+      right: 2px;
+      font-size: 8px;
+      font-weight: 800;
+      color: var(--accent-sky);
+      font-family: var(--mono);
+      line-height: 1;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+    }
+    .icon-btn.active .zoom-badge {
+      color: #fff;
+    }
+
+    /* Screen Canvas Viewport */
+    #canvasWrapper {
+      position: relative;
+      flex: 1;
+      min-height: 140px;
+      background: radial-gradient(circle at center, #0c1220 0%, #03050a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      touch-action: none;
+      padding: 4px;
+    }
+
+    #canvasTransformBox {
+      transform-origin: center center;
+      transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 100%;
+      max-height: 100%;
+      position: relative;
+    }
+    #canvasTransformBox.panning {
+      transition: none;
+    }
+
+    #screenCanvas {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      image-rendering: -webkit-optimize-contrast;
+      display: block;
+      touch-action: none;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 36px rgba(0, 0, 0, 0.75);
+    }
+
+    /* Direct Touch Visual Tap Halo */
+    .direct-tap-ring {
+      position: fixed;
+      width: 28px;
+      height: 28px;
+      margin-left: -14px;
+      margin-top: -14px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-sky);
+      background: rgba(56, 189, 248, 0.22);
+      pointer-events: none;
+      z-index: 80;
+      animation: direct-tap-pop 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes direct-tap-pop {
+      0% { transform: scale(0.45); opacity: 0.95; }
+      100% { transform: scale(1.65); opacity: 0; }
+    }
+
+    /* Floating Zoom Pan Guide */
+    #zoomGuidePill {
+      display: none;
+      position: absolute;
+      top: 10px;
+      background: rgba(13, 19, 33, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      color: #bae6fd;
+      backdrop-filter: blur(12px);
+      z-index: 40;
+      pointer-events: auto;
+      gap: 8px;
+      align-items: center;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+    }
+    #zoomGuidePill.active {
+      display: flex;
+    }
+    .zoom-reset-btn {
+      background: rgba(56, 189, 248, 0.22);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    /* Floating Zen Restore Bar (when bottom controls collapsed) */
+    #zenBar {
+      display: none;
+      position: absolute;
+      bottom: max(12px, env(safe-area-inset-bottom, 12px));
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid var(--surface-border-strong);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 6px 8px;
+      border-radius: 999px;
+      gap: 6px;
+      align-items: center;
+      z-index: 96;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    }
+    #zenBar.active {
+      display: flex;
+    }
+    .zen-chip {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--surface-border);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .zen-chip.primary {
+      background: var(--accent-gradient);
+      border: none;
+    }
+    .zen-chip:active {
+      transform: scale(0.95);
+    }
+
+    /* Toast Feedback Pill */
+    #uiToast {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translate(-50%, -10px);
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #e0f2fe;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      z-index: 320;
+      opacity: 0;
+      pointer-events: none;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    #uiToast.visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    #connectionOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 8, 16, 0.88);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+    .conn-card {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid var(--surface-border-strong);
+      border-radius: 18px;
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      max-width: 310px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.75);
+    }
+    .conn-sub {
+      font-size: 13px;
+      color: #e2e8f0;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid rgba(56, 189, 248, 0.15);
+      border-top-color: var(--accent-sky);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Bottom Interactive Controller */
+    #bottomArea {
+      background: var(--surface);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border-top: 1px solid var(--surface-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 90;
+      flex-shrink: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      transition: transform 0.2s ease, opacity 0.18s ease;
+    }
+    #bottomArea.collapsed {
+      display: none;
+    }
+
+    /* Segmented Mode Selector */
+    #modeSelector {
+      display: flex;
+      background: rgba(5, 8, 16, 0.7);
+      margin: 7px 10px 5px 10px;
+      padding: 3px;
+      border-radius: 11px;
+      border: 1px solid var(--surface-border);
+    }
+
+    .seg-btn {
+      flex: 1;
+      padding: 7px 0;
+      text-align: center;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.16s ease;
+    }
+    .seg-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+    .seg-btn.active {
+      color: #fff;
+      background: var(--surface-elevated);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+    }
+
+    /* Trackpad & Side Scroll Strip */
+    #trackpadContainer {
+      display: flex;
+      height: 138px;
+      background: var(--trackpad-bg);
+      position: relative;
+      border-top: 1px solid var(--surface-border);
+      border-bottom: 1px solid var(--surface-border);
+    }
+
+    #trackpadArea {
+      flex: 1;
+      position: relative;
+      touch-action: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-image: radial-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+      background-size: 18px 18px;
+      transition: box-shadow 0.15s ease;
+      overflow: hidden;
+    }
+    #trackpadArea.active-touch {
+      box-shadow: inset 0 0 28px rgba(56, 189, 248, 0.12);
+    }
+    #trackpadArea.active-touch #trackpadHint {
+      opacity: 0.15;
+    }
+
+    #trackpadHint {
+      color: rgba(148, 163, 184, 0.45);
+      font-size: 11px;
+      font-weight: 500;
+      pointer-events: none;
+      text-align: center;
+      line-height: 1.5;
+      transition: opacity 0.15s ease;
+      padding: 0 12px;
+    }
+
+    /* Touch Pointer Indicator */
+    #touchRipple {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(56, 189, 248, 0.55);
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.35) 0%, rgba(56, 189, 248, 0) 70%);
+      pointer-events: none;
+      display: none;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Ergonomic Side Scroll Strip */
+    #scrollStrip {
+      width: 48px;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(148, 163, 184, 0.08) 0px,
+          rgba(148, 163, 184, 0.08) 1px,
+          transparent 1px,
+          transparent 10px
+        ),
+        rgba(4, 7, 15, 0.72);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      touch-action: none;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      border-left: 1px solid var(--surface-border);
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    #scrollStrip.active-scroll {
+      color: var(--accent-sky);
+      border-left-color: rgba(56, 189, 248, 0.45);
+    }
+    #scrollStrip span { pointer-events: none; }
+
+    /* Primary Mouse Action Buttons Row */
+    .mouse-btn-row {
+      display: flex;
+      gap: 7px;
+      padding: 7px 10px;
+      background: transparent;
+    }
+
+    .mouse-btn {
+      flex: 1;
+      height: 42px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--surface-border);
+      border-bottom: 2px solid rgba(0, 0, 0, 0.55);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: background 0.12s, transform 0.06s, border-color 0.12s;
+    }
+    .mouse-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+    .mouse-btn:active {
+      transform: translateY(1px) scale(0.97);
+      background: var(--surface-hover);
+    }
+
+    .mouse-btn.primary {
+      background: var(--accent-gradient);
+      color: #fff;
+      border: 1px solid rgba(125, 211, 252, 0.35);
+      border-bottom: 2px solid #1d4ed8;
+      box-shadow: 0 3px 14px var(--accent-glow);
+    }
+    .mouse-btn.primary:active {
+      filter: brightness(1.1);
+    }
+
+    .mouse-btn.danger {
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+
+    .mouse-btn.active-lock {
+      background: var(--danger-gradient);
+      color: #fff;
+      border: 1px solid rgba(252, 165, 165, 0.45);
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.55);
+      animation: pulse-lock 1.5s infinite;
+    }
+    @keyframes pulse-lock {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    /* Swipeable Hotkey Ribbon */
+    #hotkeyRibbon {
+      display: flex;
+      overflow-x: auto;
+      gap: 6px;
+      padding: 4px 10px 9px 10px;
+      background: rgba(5, 8, 16, 0.85);
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      align-items: center;
+      mask-image: linear-gradient(to right, black 0%, black 93%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, black 0%, black 93%, transparent 100%);
+    }
+    #hotkeyRibbon::-webkit-scrollbar { display: none; }
+
+    .key-chip {
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.055);
+      color: #e2e8f0;
+      border: 1px solid var(--surface-border);
+      border-bottom: 2px solid rgba(0, 0, 0, 0.65);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--mono);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.1s ease;
+    }
+    .key-chip:active {
+      background: var(--accent);
+      border-color: var(--accent-sky);
+      color: #fff;
+      transform: translateY(1px) scale(0.95);
+    }
+
+    /* Highlighted Arrow Keys Group */
+    .arrow-key {
+      background: rgba(14, 165, 233, 0.14);
+      border-color: rgba(56, 189, 248, 0.35);
+      color: var(--accent-sky);
+      font-weight: 700;
+      padding: 6px 11px;
+    }
+    .arrow-key:active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* On-Screen Navigation D-Pad Overlay */
+    #dpadOverlay {
+      display: none;
+      position: absolute;
+      bottom: 18px;
+      right: 14px;
+      width: 124px;
+      height: 124px;
+      background: rgba(13, 19, 33, 0.88);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 50%;
+      z-index: 95;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.65);
+    }
+    #dpadOverlay.active {
+      display: block;
+    }
+    .dpad-btn {
+      position: absolute;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--surface-border);
+      color: var(--accent-sky);
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+    .dpad-btn:active {
+      background: var(--accent);
+      color: #fff;
+      transform: scale(0.92);
+    }
+    .dpad-up    { top: 7px; left: 44px; width: 36px; height: 32px; }
+    .dpad-down  { bottom: 7px; left: 44px; width: 36px; height: 32px; }
+    .dpad-left  { top: 44px; left: 7px; width: 32px; height: 36px; }
+    .dpad-right { top: 44px; right: 7px; width: 32px; height: 36px; }
+    .dpad-center{ top: 45px; left: 45px; width: 34px; height: 34px; font-size: 10px; border-radius: 50%; background: rgba(56, 189, 248, 0.22); }
+
+    /* Bottom Drawers & Modals */
+    .drawer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 6, 14, 0.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 250;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .drawer-overlay.active {
+      display: flex;
+    }
+
+    .drawer-card {
+      background: var(--surface-solid);
+      border: 1px solid var(--surface-border-strong);
+      border-bottom: none;
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-width: 500px;
+      padding: 16px 16px max(18px, env(safe-area-inset-bottom, 18px)) 16px;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.85);
+      animation: slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 85dvh;
+      overflow-y: auto;
+    }
+    @keyframes slide-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .drawer-handle {
+      width: 36px;
+      height: 4px;
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 999px;
+      margin: 0 auto 12px auto;
+    }
+
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--surface-border);
+    }
+    .drawer-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .drawer-close {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .drawer-close:active {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+    }
+
+    /* Typing Input Drawer */
+    .keyboard-input-box {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: var(--text);
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .keyboard-input-box:focus {
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+    }
+    .keyboard-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .quick-key-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    /* Telemetry Diagnostics Grid */
+    .diag-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.28);
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      font-size: 11.5px;
+      color: #a7f3d0;
+      font-weight: 600;
+    }
+    .diag-banner.warn {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: #fde68a;
+    }
+    .diag-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .diag-box {
+      background: rgba(5, 8, 16, 0.65);
+      padding: 9px 11px;
+      border-radius: 10px;
+      border: 1px solid var(--surface-border);
+    }
+    .diag-box .label { font-size: 10px; color: var(--text-muted); margin-bottom: 2px; }
+    .diag-box .val { font-size: 13px; font-weight: 700; color: var(--accent-sky); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .diag-box .val.ok { color: #34d399; }
+    .diag-box .val.warn { color: #fbbf24; }
+    .diag-box .val.bad { color: #f87171; }
+
+    /* Settings Cards & Slider */
+    .setting-row {
+      margin-bottom: 16px;
+    }
+    .setting-row label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+    .preset-card {
+      background: rgba(5, 8, 16, 0.65);
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      padding: 9px 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .preset-card.wide {
+      grid-column: span 2;
+    }
+    .preset-card .pc-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 2px;
+    }
+    .preset-card .pc-sub {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-family: var(--mono);
+    }
+    .preset-card.active {
+      background: rgba(37, 99, 235, 0.22);
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25);
+    }
+    .preset-card.active .pc-title {
+      color: #7dd3fc;
+    }
+    .preset-card:active {
+      transform: scale(0.97);
+    }
+
+    .setting-select {
+      display: none;
+    }
+    .setting-slider {
+      width: 100%;
+      accent-color: var(--accent-sky);
+      height: 6px;
+      background: var(--bg);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .pc-actions-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Floating Landscape Overlay (Rotated Mode) */
+    @media (orientation: landscape) and (max-height: 520px) {
+      #topBar {
+        height: 40px;
+        padding: 0 8px;
+      }
+      #bottomArea {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(7, 11, 18, 0.78);
+      }
+      #trackpadContainer {
+        height: 88px;
+      }
+      .mouse-btn {
+        height: 36px;
+        font-size: 11px;
+      }
+      #hotkeyRibbon {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar: Mobile Optimized with Pill Telemetry -->
+  <header id="topBar">
+    <div class="top-left">
+      <!-- Sleek Dynamic Telemetry Pill -->
+      <div id="telemetryPill" class="telemetry-pill" onclick="openDrawer('diagDrawer')">
+        <span class="status-dot online" id="statusDot"></span>
+        <span id="pillText">Connecting...</span>
+        <span class="pill-profile-tag" id="pillProfileTag">AUTO</span>
+      </div>
+    </div>
+
+    <div class="top-right">
+      <!-- 4-Way Navigation D-Pad Toggle -->
+      <button class="icon-btn" id="dpadToggleBtn" onclick="toggleDpadOverlay()" title="Navigation D-Pad" aria-label="Navigation D-Pad">
+        <svg viewBox="0 0 24 24"><polygon points="12 2 15 8 9 8"/><polygon points="12 22 15 16 9 16"/><polygon points="2 12 8 15 8 9"/><polygon points="22 12 16 15 16 9"/><circle cx="12" cy="12" r="2"/></svg>
+      </button>
+
+      <!-- 1-Tap Zoom & Desktop Pan Engine -->
+      <button class="icon-btn" id="zoomToggleBtn" onclick="cycleZoomLevel()" title="Zoom Screen" aria-label="Zoom Screen">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        <span class="zoom-badge" id="zoomBadge">1x</span>
+      </button>
+
+      <!-- Virtual Keyboard Drawer Toggle -->
+      <button class="icon-btn" onclick="openDrawer('keyboardDrawer')" title="Virtual Keyboard" aria-label="Virtual Keyboard">
+        <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M8 13h8"/></svg>
+      </button>
+
+      <!-- Zen / Collapse Bottom Controls Toggle -->
+      <button class="icon-btn" id="zenToggleBtn" onclick="toggleZenMode()" title="Hide/Show Controls" aria-label="Hide or Show Controls">
+        <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
+
+      <!-- Settings Drawer Toggle -->
+      <button class="icon-btn" onclick="openDrawer('settingsDrawer')" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.74 0-1.25.4-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Toast Banner -->
+  <div id="uiToast" role="status" aria-live="polite"></div>
+
+  <!-- Screen Viewport & Canvas Area -->
+  <main id="canvasWrapper">
+    <!-- Floating Guide Pill when Zoom is Active -->
+    <div id="zoomGuidePill">
+      <span>Drag screen to pan • Trackpad moves cursor</span>
+      <button class="zoom-reset-btn" onclick="resetZoom()">Reset 1.0x</button>
+    </div>
+
+    <div id="canvasTransformBox">
+      <canvas id="screenCanvas"></canvas>
+    </div>
+
+    <!-- Zen Mode Floating Bar -->
+    <div id="zenBar">
+      <button class="zen-chip primary" onclick="toggleZenMode()">Show Controls</button>
+      <button class="zen-chip" onpointerdown="sendMouseClick('left'); event.preventDefault();">Click</button>
+      <button class="zen-chip" onclick="openDrawer('keyboardDrawer')">Keyboard</button>
+    </div>
+
+    <div id="connectionOverlay">
+      <div class="conn-card">
+        <div class="spinner" id="overlaySpinner"></div>
+        <div id="overlayText" class="conn-sub">Connecting to Windows host...</div>
+        <button class="mouse-btn primary" id="overlayRetryBtn" style="display:none; width:100%; height:38px;" onclick="manualReconnect()">Reconnect Now</button>
+      </div>
+    </div>
+
+    <!-- On-Screen 4-Way Arrow D-Pad -->
+    <div id="dpadOverlay">
+      <button class="dpad-btn dpad-up" onpointerdown="startRepeatKey('up'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">▲</button>
+      <button class="dpad-btn dpad-down" onpointerdown="startRepeatKey('down'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">▼</button>
+      <button class="dpad-btn dpad-left" onpointerdown="startRepeatKey('left'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">◀</button>
+      <button class="dpad-btn dpad-right" onpointerdown="startRepeatKey('right'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">▶</button>
+      <button class="dpad-btn dpad-center" onpointerdown="sendKey('enter'); event.preventDefault();">OK</button>
+    </div>
+  </main>
+
+  <!-- Bottom Touch Controller Center -->
+  <footer id="bottomArea">
+    <!-- Mode Switcher -->
+    <div id="modeSelector">
+      <button class="seg-btn active" id="segTrackpad" onclick="setMode('trackpad')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="15" x2="12" y2="20"/></svg>
+        Trackpad & Gestures
+      </button>
+      <button class="seg-btn" id="segDirect" onclick="setMode('direct')">
+        <svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M6 14v-1a2 2 0 0 0-4 0v3a8 8 0 0 0 16 0v-5a2 2 0 0 0-4 0"/></svg>
+        Direct Touch
+      </button>
+    </div>
+
+    <!-- Interactive Trackpad -->
+    <div id="trackpadContainer">
+      <div id="trackpadArea">
+        <span id="trackpadHint">Slide to move cursor • Tap to left-click • 2-finger scroll / tap</span>
+        <div id="touchRipple"></div>
+      </div>
+      <div id="scrollStrip">
+        <span>▲</span>
+        <span style="font-size:8.5px; letter-spacing:1px;">SCROLL</span>
+        <span>▼</span>
+      </div>
+    </div>
+
+    <!-- Thumb-Reachable Primary Action Buttons -->
+    <div class="mouse-btn-row">
+      <button class="mouse-btn" id="dragLockBtn" onpointerdown="toggleDragLock(); event.preventDefault();">
+        <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span id="dragLockLabel">Drag Off</span>
+      </button>
+      <button class="mouse-btn primary" onpointerdown="sendMouseClick('left'); event.preventDefault();">
+        Left Click
+      </button>
+      <button class="mouse-btn" onpointerdown="sendMouseClick('double'); event.preventDefault();">
+        2× Double
+      </button>
+      <button class="mouse-btn" onpointerdown="sendMouseClick('right'); event.preventDefault();">
+        Right Click
+      </button>
+    </div>
+
+    <!-- Swipeable Quick Windows Shortcuts Ribbon with Arrow Keys -->
+    <div id="hotkeyRibbon">
+      <!-- Navigation Arrow Shortcuts -->
+      <button class="key-chip arrow-key" onpointerdown="startRepeatKey('up'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">▲</button>
+      <button class="key-chip arrow-key" onpointerdown="startRepeatKey('down'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">▼</button>
+      <button class="key-chip arrow-key" onpointerdown="startRepeatKey('left'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">◀</button>
+      <button class="key-chip arrow-key" onpointerdown="startRepeatKey('right'); event.preventDefault();" onpointerup="stopRepeatKey()" onpointerleave="stopRepeatKey()" onpointercancel="stopRepeatKey()">▶</button>
+
+      <!-- System & Window Controls -->
+      <button class="key-chip" onclick="sendKey('win')">Win</button>
+      <button class="key-chip" onclick="sendHotkey(['alt', 'tab'])">Alt+Tab</button>
+      <button class="key-chip" onclick="sendHotkey(['win', 'd'])">Win+D</button>
+      <button class="key-chip" onclick="sendHotkey(['ctrl', 'shift', 'esc'])">TaskMgr</button>
+      <button class="key-chip" onclick="sendHotkey(['alt', 'f4'])">Alt+F4</button>
+      <button class="key-chip" onclick="sendHotkey(['win', 'e'])">Files</button>
+      <button class="key-chip" onclick="sendHotkey(['ctrl', 'c'])">Ctrl+C</button>
+      <button class="key-chip" onclick="sendHotkey(['ctrl', 'v'])">Ctrl+V</button>
+      <button class="key-chip" onclick="sendHotkey(['ctrl', 'z'])">Ctrl+Z</button>
+      <button class="key-chip" onclick="sendKey('esc')">Esc</button>
+      <button class="key-chip" onclick="sendKey('enter')">Enter</button>
+      <button class="key-chip" onclick="sendKey('backspace')">⌫ Back</button>
+    </div>
+  </footer>
+
+  <!-- Virtual Keyboard Drawer -->
+  <div class="drawer-overlay" id="keyboardDrawer" onclick="handleDrawerBackdrop(event, 'keyboardDrawer')">
+    <div class="drawer-card">
+      <div class="drawer-handle"></div>
+      <div class="drawer-header">
+        <span class="drawer-title">Type to Windows PC</span>
+        <button class="drawer-close" onclick="closeDrawer('keyboardDrawer')">✕</button>
+      </div>
+      <input type="text" id="textInput" class="keyboard-input-box" placeholder="Type words, commands, URLs..." autocomplete="off">
+      <div class="keyboard-actions">
+        <button class="mouse-btn primary" style="flex:2;" onclick="submitTypedText()">Send Text</button>
+        <button class="mouse-btn" style="flex:1;" onclick="sendKey('enter')">↵ Enter</button>
+        <button class="mouse-btn" style="flex:1;" onclick="sendKey('backspace')">⌫ Del</button>
+      </div>
+      <div class="quick-key-strip">
+        <button class="key-chip" onclick="sendKey('tab')">Tab</button>
+        <button class="key-chip" onclick="sendKey('esc')">Esc</button>
+        <button class="key-chip" onclick="sendHotkey(['ctrl', 'a'])">Ctrl+A</button>
+        <button class="key-chip" onclick="sendHotkey(['ctrl', 'c'])">Ctrl+C</button>
+        <button class="key-chip" onclick="sendHotkey(['ctrl', 'v'])">Ctrl+V</button>
+        <button class="key-chip" onclick="sendHotkey(['win', 'v'])">Win+V</button>
+        <button class="key-chip" onclick="sendHotkey(['alt', 'tab'])">Alt+Tab</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Diagnostics Drawer -->
+  <div class="drawer-overlay" id="diagDrawer" onclick="handleDrawerBackdrop(event, 'diagDrawer')">
+    <div class="drawer-card">
+      <div class="drawer-handle"></div>
+      <div class="drawer-header">
+        <span class="drawer-title">Live Network & Telemetry</span>
+        <button class="drawer-close" onclick="closeDrawer('diagDrawer')">✕</button>
+      </div>
+      <div id="diagTransportBanner" class="diag-banner">
+        <span>Dual Socket (/ws/control + /ws/stream)</span>
+        <span id="diagFlowMode">In-Flight ≤ 2</span>
+      </div>
+      <div class="diag-grid">
+        <div class="diag-box">
+          <div class="label">RTT (Avg / P95 / Min)</div>
+          <div class="val" id="diagRtt">-- / -- / -- ms</div>
+        </div>
+        <div class="diag-box">
+          <div class="label">RFC 3550 Jitter</div>
+          <div class="val" id="diagJitter">-- ms</div>
+        </div>
+        <div class="diag-box">
+          <div class="label">Framerate & Bitrate</div>
+          <div class="val" id="diagFpsBitrate">-- FPS | -- kbps</div>
+        </div>
+        <div class="diag-box">
+          <div class="label">Frame Age</div>
+          <div class="val" id="diagFrameAge">-- ms</div>
+        </div>
+        <div class="diag-box">
+          <div class="label">Capture & Encode</div>
+          <div class="val" id="diagCapEnc">-- ms / -- ms</div>
+        </div>
+        <div class="diag-box">
+          <div class="label">Active Profile</div>
+          <div class="val" id="diagProfile">AUTO</div>
+        </div>
+        <div class="diag-box">
+          <div class="label">Dropped Frames</div>
+          <div class="val" id="diagDropped">0</div>
+        </div>
+        <div class="diag-box">
+          <div class="label">Reconnections</div>
+          <div class="val" id="diagReconnects">0</div>
+        </div>
+      </div>
+      <button class="mouse-btn" style="width:100%;" onclick="closeDrawer('diagDrawer')">Close</button>
+    </div>
+  </div>
+
+  <!-- Settings Drawer -->
+  <div class="drawer-overlay" id="settingsDrawer" onclick="handleDrawerBackdrop(event, 'settingsDrawer')">
+    <div class="drawer-card">
+      <div class="drawer-handle"></div>
+      <div class="drawer-header">
+        <span class="drawer-title">Stream & Controls Settings</span>
+        <button class="drawer-close" onclick="closeDrawer('settingsDrawer')">✕</button>
+      </div>
+      <div class="setting-row">
+        <label>Streaming Quality Preset</label>
+        <div class="preset-grid" id="presetGrid">
+          <button type="button" class="preset-card wide active" data-preset="auto" onclick="selectPresetCard('auto')">
+            <div class="pc-title">Auto Adaptive</div>
+            <div class="pc-sub">Balances sharpness & tunnel speed automatically</div>
+          </button>
+          <button type="button" class="preset-card" data-preset="excellent" onclick="selectPresetCard('excellent')">
+            <div class="pc-title">Ultra HD</div>
+            <div class="pc-sub">1080p • 30 FPS • Q75</div>
+          </button>
+          <button type="button" class="preset-card" data-preset="good" onclick="selectPresetCard('good')">
+            <div class="pc-title">Balanced</div>
+            <div class="pc-sub">720p • 24 FPS • Q65</div>
+          </button>
+          <button type="button" class="preset-card" data-preset="moderate" onclick="selectPresetCard('moderate')">
+            <div class="pc-title">Fast Mode</div>
+            <div class="pc-sub">540p • 15 FPS • Q55</div>
+          </button>
+          <button type="button" class="preset-card" data-preset="poor" onclick="selectPresetCard('poor')">
+            <div class="pc-title">Low Bandwidth</div>
+            <div class="pc-sub">360p • 8 FPS • Q40</div>
+          </button>
+        </div>
+        <select id="presetSelect" class="setting-select" onchange="applyPresetDropdown()">
+          <option value="auto" selected>Auto Adaptive</option>
+          <option value="excellent">Ultra HD (1080p / 30 FPS)</option>
+          <option value="good">Balanced (720p / 24 FPS)</option>
+          <option value="moderate">Fast Mode (540p / 15 FPS)</option>
+          <option value="poor">Low Bandwidth (360p / 8 FPS)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>
+          <span>Trackpad Sensitivity</span>
+          <span id="sensValue" style="color:#38bdf8; font-family:var(--mono); font-weight:700;">1.2</span>
+        </label>
+        <input type="range" id="sensRange" class="setting-slider" min="0.5" max="3.0" step="0.1" value="1.2" oninput="updateSensitivity()">
+      </div>
+      <div class="setting-row">
+        <label>PC Quick Actions</label>
+        <div class="pc-actions-row">
+          <button type="button" class="mouse-btn" onclick="executePcAction('taskbar')">Toggle Taskbar</button>
+          <button type="button" class="mouse-btn danger" id="lockPcBtn" onclick="executePcAction('lock')">Lock Windows</button>
+        </div>
+      </div>
+      <button class="mouse-btn primary" style="width:100%; margin-top:4px;" onclick="closeDrawer('settingsDrawer')">Done</button>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Telegram Mini App APIs
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+      if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+      if (tg.setHeaderColor) tg.setHeaderColor('#070b12');
+      if (tg.setBackgroundColor) tg.setBackgroundColor('#070b12');
+    }
+
+    let ws = null;
+    let controlWs = null;
+    let controlReconnectTimer = null;
+    let standbyHalted = false;
+    let currentMode = 'trackpad';
+    let sensitivity = 1.2;
+    let dragLockActive = false;
+    let currentPreset = 'auto';
+
+    // Zoom and pan engine
+    let zoomLevel = 1.0;
+    const zoomLevels = [1.0, 1.5, 2.2];
+    let zoomIndex = 0;
+    let panX = 0, panY = 0;
+
+    // Rolling latency statistics
+    const rttWindow = [];
+    const windowMax = 25;
+    let rollingJitter = 0.0;
+    let lastRtt = 0.0;
+    let clockOffset = 0.0;
+    let lastPingSend = 0.0;
+    let frameCount = 0;
+    let fpsInterval = null;
+    let lastDiagnostics = {};
+
+    let naturalWidth = 1366;
+    let naturalHeight = 768;
+    let cachedCanvasRect = null;
+    let reconnectAttempts = 0;
+
+    // Elements
+    const canvas = document.getElementById('screenCanvas');
+    const transformBox = document.getElementById('canvasTransformBox');
+    const canvasWrapper = document.getElementById('canvasWrapper');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const statusDot = document.getElementById('statusDot');
+    const pillText = document.getElementById('pillText');
+    const overlay = document.getElementById('connectionOverlay');
+    const overlayText = document.getElementById('overlayText');
+    const trackpadArea = document.getElementById('trackpadArea');
+    const scrollStrip = document.getElementById('scrollStrip');
+    const touchRipple = document.getElementById('touchRipple');
+    const dragLockBtn = document.getElementById('dragLockBtn');
+    const zoomBadge = document.getElementById('zoomBadge');
+    const zoomGuidePill = document.getElementById('zoomGuidePill');
+    const dpadOverlay = document.getElementById('dpadOverlay');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const authToken = urlParams.get('token') || '';
+    if (authToken && window.history && window.history.replaceState) {
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch(e) {}
+    }
+
+    function haptic(type = 'light') {
+      try {
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.impactOccurred(type);
+        }
+      } catch(e) {}
+    }
+
+    function updateCanvasRect() {
+      cachedCanvasRect = canvas.getBoundingClientRect();
+    }
+    window.addEventListener('resize', updateCanvasRect);
+    window.addEventListener('orientationchange', () => setTimeout(updateCanvasRect, 200));
+
+    // Toast & Zen Controls
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById('uiToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('visible');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('visible'), 1700);
+    }
+
+    let zenMode = false;
+    function toggleZenMode() {
+      zenMode = !zenMode;
+      document.getElementById('bottomArea').classList.toggle('collapsed', zenMode);
+      document.getElementById('zenBar').classList.toggle('active', zenMode);
+      document.getElementById('zenToggleBtn').classList.toggle('active', zenMode);
+      setTimeout(updateCanvasRect, 80);
+      haptic('light');
+      showToast(zenMode ? 'Full Screen View Active' : 'Controls Restored');
+    }
+
+    // D-Pad Toggle
+    function toggleDpadOverlay() {
+      const isActive = dpadOverlay.classList.toggle('active');
+      document.getElementById('dpadToggleBtn').classList.toggle('active', isActive);
+      haptic('medium');
+    }
+
+    // Repeatable arrow key dispatcher (touch-and-hold for continuous scrolling)
+    let repeatKeyTimer = null;
+    let repeatKeyInterval = null;
+
+    function startRepeatKey(keyName) {
+      sendKey(keyName);
+      stopRepeatKey();
+      repeatKeyTimer = setTimeout(() => {
+        repeatKeyInterval = setInterval(() => {
+          sendKey(keyName);
+        }, 90);
+      }, 350);
+    }
+
+    function stopRepeatKey() {
+      if (repeatKeyTimer) clearTimeout(repeatKeyTimer);
+      if (repeatKeyInterval) clearInterval(repeatKeyInterval);
+      repeatKeyTimer = null;
+      repeatKeyInterval = null;
+    }
+
+    window.addEventListener('pointerup', stopRepeatKey);
+    window.addEventListener('pointercancel', stopRepeatKey);
+    window.addEventListener('touchend', stopRepeatKey);
+    window.addEventListener('touchcancel', stopRepeatKey);
+
+    // Zoom & Pan Controller
+    function cycleZoomLevel() {
+      zoomIndex = (zoomIndex + 1) % zoomLevels.length;
+      zoomLevel = zoomLevels[zoomIndex];
+      updateZoomUI();
+      applyZoomTransform();
+      haptic('medium');
+    }
+
+    function resetZoom() {
+      zoomIndex = 0;
+      zoomLevel = 1.0;
+      panX = 0;
+      panY = 0;
+      updateZoomUI();
+      applyZoomTransform();
+      haptic('light');
+    }
+
+    function updateZoomUI() {
+      zoomBadge.textContent = `${zoomLevel.toFixed(1)}x`;
+      document.getElementById('zoomToggleBtn').classList.toggle('active', zoomLevel > 1.0);
+      zoomGuidePill.classList.toggle('active', zoomLevel > 1.0);
+    }
+
+    function getMaxPan() {
+      if (!cachedCanvasRect) updateCanvasRect();
+      const rect = cachedCanvasRect;
+      if (!rect || zoomLevel <= 1.0) return { x: 0, y: 0 };
+      const maxRangeX = (rect.width * (zoomLevel - 1.0)) / 2;
+      const maxRangeY = (rect.height * (zoomLevel - 1.0)) / 2;
+      return { x: maxRangeX, y: maxRangeY };
+    }
+
+    function applyZoomTransform() {
+      if (zoomLevel === 1.0) {
+        panX = 0;
+        panY = 0;
+        transformBox.style.transform = `scale(1.0) translate(0px, 0px)`;
+      } else {
+        const maxPan = getMaxPan();
+        panX = Math.max(-maxPan.x, Math.min(maxPan.x, panX));
+        panY = Math.max(-maxPan.y, Math.min(maxPan.y, panY));
+        transformBox.style.transform = `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`;
+      }
+      setTimeout(updateCanvasRect, 90);
+    }
+
+    // Drag-to-pan in Trackpad Mode when Zoomed In
+    let isCanvasPanning = false;
+    let canvasPanStartX = 0, canvasPanStartY = 0;
+    let canvasInitialPanX = 0, canvasInitialPanY = 0;
+
+    canvasWrapper.addEventListener('touchstart', (e) => {
+      // In Trackpad mode when Zoomed: drag screen to pan
+      if (currentMode === 'trackpad' && zoomLevel > 1.0) {
+        if (e.touches.length === 1) {
+          isCanvasPanning = true;
+          transformBox.classList.add('panning');
+          canvasPanStartX = e.touches[0].clientX;
+          canvasPanStartY = e.touches[0].clientY;
+          canvasInitialPanX = panX;
+          canvasInitialPanY = panY;
+        }
+      }
+    }, { passive: false });
+
+    canvasWrapper.addEventListener('touchmove', (e) => {
+      if (isCanvasPanning && currentMode === 'trackpad' && zoomLevel > 1.0) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - canvasPanStartX;
+        const dy = e.touches[0].clientY - canvasPanStartY;
+        panX = canvasInitialPanX + dx;
+        panY = canvasInitialPanY + dy;
+        applyZoomTransform();
+      }
+    }, { passive: false });
+
+    canvasWrapper.addEventListener('touchend', () => {
+      isCanvasPanning = false;
+      transformBox.classList.remove('panning');
+    }, { passive: false });
+
+    // Double tap canvas to toggle quick zoom
+    let lastCanvasTap = 0;
+    canvas.addEventListener('touchend', (e) => {
+      if (currentMode === 'trackpad') {
+        const now = Date.now();
+        if (now - lastCanvasTap < 260) {
+          cycleZoomLevel();
+          e.preventDefault();
+        }
+        lastCanvasTap = now;
+      }
+    });
+
+    // In-flight latest-frame decode & connection timers
+    let isDecoding = false;
+    let pendingBlob = null;
+    let pingInterval = null;
+    let reconnectTimer = null;
+    let lastMeasuredFrameAge = 0;
+
+    function manualReconnect() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (controlReconnectTimer) {
+        clearTimeout(controlReconnectTimer);
+        controlReconnectTimer = null;
+      }
+      standbyHalted = false;
+      reconnectAttempts = 0;
+      connectWS();
+    }
+
+    function connectControlWS() {
+      if (controlReconnectTimer) {
+        clearTimeout(controlReconnectTimer);
+        controlReconnectTimer = null;
+      }
+      if (standbyHalted) return;
+      if (controlWs && (controlWs.readyState === WebSocket.OPEN || controlWs.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ctrlUrl = `${protocol}//${window.location.host}/ws/control?token=${encodeURIComponent(authToken)}`;
+
+      controlWs = new WebSocket(ctrlUrl);
+      controlWs.onopen = () => {
+        flushOutboundQueue();
+        sendStreamConfig();
+      };
+      controlWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'pong') {
+            handlePong(data);
+          }
+        } catch(e) {}
+      };
+      controlWs.onclose = (event) => {
+        controlWs = null;
+        if (standbyHalted || (event && event.code === 1008)) return;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          controlReconnectTimer = setTimeout(connectControlWS, 2000);
+        }
+      };
+      controlWs.onerror = () => {};
+    }
+
+    function connectWS() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/stream?token=${encodeURIComponent(authToken)}`;
+
+      overlayText.textContent = "Connecting to Windows host...";
+      document.getElementById('overlaySpinner').style.display = "block";
+      document.getElementById('overlayRetryBtn').style.display = "none";
+      overlay.style.display = "flex";
+
+      ws = new WebSocket(wsUrl);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onopen = () => {
+        standbyHalted = false;
+        statusDot.className = "status-dot online";
+        pillText.textContent = "Live • Measuring";
+        overlay.style.display = "none";
+        reconnectAttempts = 0;
+        updateCanvasRect();
+        connectControlWS();
+        startPingLoop();
+        startFpsCounter();
+        sendStreamConfig();
+        flushOutboundQueue();
+      };
+
+      ws.onclose = (event) => {
+        if (pingInterval) {
+          clearInterval(pingInterval);
+          pingInterval = null;
+        }
+        if (controlReconnectTimer) {
+          clearTimeout(controlReconnectTimer);
+          controlReconnectTimer = null;
+        }
+        statusDot.className = "status-dot";
+        pillText.textContent = "Offline";
+        overlay.style.display = "flex";
+        reconnectAttempts++;
+
+        if (event && event.code === 1008) {
+          standbyHalted = true;
+          if (controlWs && controlWs.readyState <= WebSocket.OPEN) {
+            try { controlWs.close(); } catch(e) {}
+          }
+          const reason = event.reason || "Authorization or standby restriction";
+          overlayText.textContent = reason;
+          document.getElementById('overlaySpinner').style.display = "none";
+          document.getElementById('overlayRetryBtn').style.display = "inline-flex";
+          // Back off slowly for standby mode so we don't spam closed sockets
+          const standbyDelay = Math.min(20000, 4000 * Math.pow(1.5, Math.min(reconnectAttempts, 4)));
+          reconnectTimer = setTimeout(() => { standbyHalted = false; connectWS(); }, standbyDelay);
+        } else {
+          document.getElementById('overlaySpinner').style.display = "block";
+          document.getElementById('overlayRetryBtn').style.display = "inline-flex";
+          const backoffMs = Math.min(20000, 1500 * Math.pow(2, Math.min(reconnectAttempts - 1, 4)));
+          overlayText.textContent = `Disconnected. Reconnecting in ${Math.round(backoffMs / 1000)}s (#${reconnectAttempts})...`;
+          reconnectTimer = setTimeout(connectWS, backoffMs);
+        }
+      };
+
+      ws.onerror = (err) => console.error("WS error:", err);
+
+      ws.onmessage = async (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          frameCount++;
+          processBinaryFrame(event.data);
+        } else {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'pong') {
+              handlePong(data);
+            }
+          } catch(e) {}
+        }
+      };
+    }
+
+    // Process 32-byte header frame
+    async function processBinaryFrame(arrayBuffer) {
+      if (arrayBuffer.byteLength < 32) return;
+
+      const view = new DataView(arrayBuffer);
+      const magic = String.fromCharCode(
+        view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3)
+      );
+
+      let imageBlob = null;
+      let frameAge = 0;
+      let capMs = 0, encMs = 0;
+
+      if (magic === "TGFR") {
+        const frameId = view.getUint32(4);
+        const serverTs = view.getFloat64(8);
+        capMs = view.getFloat32(16);
+        encMs = view.getFloat32(20);
+        const origW = view.getUint16(24);
+        const origH = view.getUint16(26);
+
+        naturalWidth = origW || 1366;
+        naturalHeight = origH || 768;
+
+        // Immediately acknowledge frame receipt so server slides its MAX_IN_FLIGHT window without tunnel bloat
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ type: 'frame_ack', id: frameId }));
+          } catch(e) {}
+        }
+
+        const nowMonotonic = performance.now();
+        frameAge = Math.max(1, Math.round(nowMonotonic - (serverTs - clockOffset)));
+        lastMeasuredFrameAge = frameAge;
+        imageBlob = new Blob([new Uint8Array(arrayBuffer, 32)], { type: 'image/jpeg' });
+      } else {
+        imageBlob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+      }
+
+      pendingBlob = imageBlob;
+      if (!isDecoding) {
+        renderNextFrame(frameAge, capMs, encMs);
+      }
+    }
+
+    async function renderNextFrame(frameAge, capMs, encMs) {
+      if (!pendingBlob) return;
+      isDecoding = true;
+      const blobToDecode = pendingBlob;
+      pendingBlob = null;
+
+      try {
+        let bitmap = null;
+        if (window.createImageBitmap) {
+          bitmap = await createImageBitmap(blobToDecode);
+        } else {
+          bitmap = await new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(blobToDecode);
+            img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+            img.src = url;
+          });
+        }
+
+        requestAnimationFrame(() => {
+          if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            updateCanvasRect();
+          }
+          ctx.drawImage(bitmap, 0, 0);
+
+          if (bitmap.close) bitmap.close();
+          isDecoding = false;
+
+          if (pendingBlob) {
+            renderNextFrame(frameAge, capMs, encMs);
+          }
+        });
+      } catch(e) {
+        isDecoding = false;
+      }
+    }
+
+    function handlePong(data) {
+      const now = performance.now();
+      const sentAt = data.t ? parseFloat(data.t) : lastPingSend;
+      const rtt = Math.max(1, Math.round(now - sentAt));
+
+      if (lastRtt > 0) {
+        const diff = Math.abs(rtt - lastRtt);
+        rollingJitter += (diff - rollingJitter) / 16.0;
+      }
+      lastRtt = rtt;
+
+      if (data.st) {
+        const estServerNow = data.st + (rtt / 2.0);
+        clockOffset = estServerNow - now;
+      }
+
+      rttWindow.push(rtt);
+      if (rttWindow.length > windowMax) rttWindow.shift();
+
+      if (data.diag) {
+        lastDiagnostics = data.diag;
+      }
+
+      updateTelemetryUI(rtt);
+    }
+
+    function updateTelemetryUI(latestRtt) {
+      const sorted = [...rttWindow].sort((a,b) => a-b);
+      const minRtt = sorted.length ? sorted[0] : latestRtt;
+      const avgRtt = sorted.length ? Math.round(sorted.reduce((a,b)=>a+b, 0)/sorted.length) : latestRtt;
+      const p95Idx = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
+      const p95Rtt = sorted.length ? sorted[Math.max(0, p95Idx)] : latestRtt;
+      const jitter = Math.round(rollingJitter);
+      const fps = lastDiagnostics.fps || frameCount;
+
+      pillText.textContent = `${avgRtt}ms • ${fps} FPS`;
+      const profileName = (lastDiagnostics.profile || currentPreset || 'auto').toUpperCase();
+      document.getElementById('pillProfileTag').textContent = profileName;
+
+      if (avgRtt < 120) {
+        statusDot.className = "status-dot online";
+      } else if (avgRtt < 260) {
+        statusDot.className = "status-dot warning";
+      } else {
+        statusDot.className = "status-dot";
+      }
+
+      const diagRttEl = document.getElementById('diagRtt');
+      diagRttEl.textContent = `${avgRtt} / ${p95Rtt} / ${minRtt} ms`;
+      diagRttEl.className = 'val ' + (avgRtt < 120 ? 'ok' : (avgRtt < 260 ? 'warn' : 'bad'));
+
+      const diagJitterEl = document.getElementById('diagJitter');
+      diagJitterEl.textContent = `${jitter} ms`;
+      diagJitterEl.className = 'val ' + (jitter < 35 ? 'ok' : (jitter < 80 ? 'warn' : 'bad'));
+
+      const diagBanner = document.getElementById('diagTransportBanner');
+      if (diagBanner) {
+        const dualActive = controlWs && controlWs.readyState === WebSocket.OPEN;
+        diagBanner.classList.toggle('warn', !dualActive);
+        diagBanner.firstElementChild.textContent = dualActive
+          ? 'Dual Socket (/ws/control + /ws/stream)'
+          : 'Single Socket Fallback (/ws/stream)';
+      }
+
+      document.getElementById('diagFpsBitrate').textContent = `${fps} FPS | ${lastDiagnostics.bitrate_kbps || 0} kbps`;
+      document.getElementById('diagCapEnc').textContent = `${lastDiagnostics.capture_ms || 0} ms / ${lastDiagnostics.encode_ms || 0} ms`;
+      document.getElementById('diagProfile').textContent = profileName;
+      document.getElementById('diagDropped').textContent = lastDiagnostics.frames_dropped || 0;
+      document.getElementById('diagReconnects').textContent = (lastDiagnostics.reconnect_count || reconnectAttempts);
+      const shownAge = lastMeasuredFrameAge > 0 ? lastMeasuredFrameAge : Math.round(lastDiagnostics.server_proc_ms || 0);
+      document.getElementById('diagFrameAge').textContent = `${shownAge} ms`;
+    }
+
+    function getActiveControlSocket() {
+      if (controlWs && controlWs.readyState === WebSocket.OPEN) return controlWs;
+      if (ws && ws.readyState === WebSocket.OPEN) return ws;
+      return null;
+    }
+
+    function startPingLoop() {
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = setInterval(() => {
+        const sock = getActiveControlSocket();
+        if (sock) {
+          lastPingSend = performance.now();
+          sock.send(JSON.stringify({
+            type: 'ping',
+            t: lastPingSend,
+            rtt: lastRtt
+          }));
+        }
+      }, 1200);
+    }
+
+    function startFpsCounter() {
+      if (fpsInterval) clearInterval(fpsInterval);
+      fpsInterval = setInterval(() => {
+        frameCount = 0;
+      }, 1000);
+    }
+
+    const outboundQueue = [];
+    const CRITICAL_TYPES = new Set(['mouse_click', 'mouse_down', 'mouse_up', 'key_press', 'hotkey', 'type_text', 'config']);
+
+    function sendWs(packet) {
+      const sock = getActiveControlSocket();
+      if (sock) {
+        sock.send(JSON.stringify(packet));
+      } else if (CRITICAL_TYPES.has(packet.type)) {
+        if (outboundQueue.length < 30) {
+          outboundQueue.push(packet);
+        }
+      }
+    }
+
+    function flushOutboundQueue() {
+      while (outboundQueue.length > 0) {
+        const sock = getActiveControlSocket();
+        if (!sock) break;
+        const pkt = outboundQueue.shift();
+        try {
+          sock.send(JSON.stringify(pkt));
+        } catch(e) {}
+      }
+    }
+
+    // Mode Selector
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('segTrackpad').classList.toggle('active', mode === 'trackpad');
+      document.getElementById('segDirect').classList.toggle('active', mode === 'direct');
+      document.getElementById('trackpadContainer').style.display = mode === 'trackpad' ? 'flex' : 'none';
+      updateCanvasRect();
+      haptic('light');
+    }
+
+    // Drag Lock Feature
+    function toggleDragLock() {
+      dragLockActive = !dragLockActive;
+      dragLockBtn.classList.toggle('active-lock', dragLockActive);
+      const lbl = document.getElementById('dragLockLabel');
+      if (lbl) lbl.textContent = dragLockActive ? 'Drag ON' : 'Drag Off';
+      haptic('medium');
+      showToast(dragLockActive ? 'Drag Lock ON — tap again to drop' : 'Drag Lock Released');
+
+      if (dragLockActive) {
+        sendWs({ type: 'mouse_down', button: 'left' });
+      } else {
+        sendWs({ type: 'mouse_up', button: 'left' });
+      }
+    }
+
+    // Trackpad Gestures
+    let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+    let lastTouchX = 0, lastTouchY = 0;
+    let isTwoFinger = false, twoFingerStartY = 0;
+    let twoFingerMoved = false;
+
+    trackpadArea.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      trackpadArea.classList.add('active-touch');
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        lastTouchX = touchStartX;
+        lastTouchY = touchStartY;
+        touchStartTime = Date.now();
+        isTwoFinger = false;
+        twoFingerMoved = false;
+
+        const rect = trackpadArea.getBoundingClientRect();
+        touchRipple.style.left = `${touchStartX - rect.left}px`;
+        touchRipple.style.top = `${touchStartY - rect.top}px`;
+        touchRipple.style.display = 'block';
+      } else if (e.touches.length === 2) {
+        isTwoFinger = true;
+        twoFingerMoved = false;
+        twoFingerStartY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        touchRipple.style.display = 'none';
+      }
+    }, { passive: false });
+
+    // High-speed mouse move dispatcher (instant dispatch without RAF throttling)
+    let pendingDx = 0;
+    let pendingDy = 0;
+    let lastMoveDispatch = 0;
+
+    function dispatchMouseMove(dx, dy) {
+      pendingDx += dx;
+      pendingDy += dy;
+      const now = performance.now();
+      if (now - lastMoveDispatch >= 16) {
+        sendWs({
+          type: 'mouse_move',
+          dx: pendingDx,
+          dy: pendingDy,
+          sensitivity: sensitivity
+        });
+        pendingDx = 0;
+        pendingDy = 0;
+        lastMoveDispatch = now;
+      }
+    }
+
+    trackpadArea.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && !isTwoFinger) {
+        const cx = e.touches[0].clientX;
+        const cy = e.touches[0].clientY;
+        const dx = (cx - lastTouchX);
+        const dy = (cy - lastTouchY);
+        lastTouchX = cx;
+        lastTouchY = cy;
+
+        const rect = trackpadArea.getBoundingClientRect();
+        touchRipple.style.left = `${cx - rect.left}px`;
+        touchRipple.style.top = `${cy - rect.top}px`;
+
+        dispatchMouseMove(dx, dy);
+      } else if (e.touches.length === 2) {
+        const curY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const deltaScroll = Math.round((curY - twoFingerStartY) * 4);
+        if (Math.abs(curY - twoFingerStartY) > 6) {
+          twoFingerMoved = true;
+        }
+        twoFingerStartY = curY;
+        if (deltaScroll !== 0) {
+          sendWs({ type: 'mouse_wheel', delta_y: deltaScroll });
+        }
+      }
+    }, { passive: false });
+
+    trackpadArea.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 0) {
+        trackpadArea.classList.remove('active-touch');
+      }
+      touchRipple.style.display = 'none';
+
+      // Flush any trailing delta
+      if (pendingDx !== 0 || pendingDy !== 0) {
+        sendWs({
+          type: 'mouse_move',
+          dx: pendingDx,
+          dy: pendingDy,
+          sensitivity: sensitivity
+        });
+        pendingDx = 0;
+        pendingDy = 0;
+      }
+
+      // Two-finger tap detection (Right Click)
+      if (isTwoFinger) {
+        if (!twoFingerMoved) {
+          sendMouseClick('right');
+        }
+        if (e.touches.length === 0) {
+          isTwoFinger = false;
+        }
+        return;
+      }
+
+      // Single-finger thumb tap detection (Left Click)
+      if (e.changedTouches.length === 1 && !dragLockActive) {
+        const elapsed = Date.now() - touchStartTime;
+        const distX = Math.abs(e.changedTouches[0].clientX - touchStartX);
+        const distY = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        if (elapsed < 380 && distX < 24 && distY < 24) {
+          sendMouseClick('left');
+        }
+      }
+    }, { passive: false });
+
+    // Dedicated Side Scroll Strip
+    let scrollLastY = 0;
+    scrollStrip.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      scrollStrip.classList.add('active-scroll');
+      scrollLastY = e.touches[0].clientY;
+      haptic('light');
+    }, { passive: false });
+
+    scrollStrip.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const curY = e.touches[0].clientY;
+      const delta = Math.round((curY - scrollLastY) * 5);
+      scrollLastY = curY;
+      if (delta !== 0) {
+        sendWs({ type: 'mouse_wheel', delta_y: delta });
+      }
+    }, { passive: false });
+
+    scrollStrip.addEventListener('touchend', () => {
+      scrollStrip.classList.remove('active-scroll');
+    }, { passive: false });
+
+    // Direct Touch Canvas Handlers: Active in both modes
+    canvas.addEventListener('touchstart', (e) => {
+      if (currentMode === 'trackpad' && zoomLevel > 1.0) return;
+      e.preventDefault();
+      handleDirectTouch(e.touches[0], 'down');
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (currentMode === 'trackpad' && zoomLevel > 1.0) return;
+      e.preventDefault();
+      handleDirectTouch(e.touches[0], 'move');
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (currentMode === 'trackpad' && zoomLevel > 1.0) return;
+      e.preventDefault();
+      handleDirectTouch(e.changedTouches[0], 'up');
+    }, { passive: false });
+
+    function handleDirectTouch(touch, action) {
+      // getBoundingClientRect() already accounts for CSS scale() and translate() on #canvasTransformBox
+      const rect = canvas.getBoundingClientRect();
+      if (!rect || rect.width === 0 || rect.height === 0) return;
+
+      const normX = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+      const normY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
+
+      const packet = {
+        type: 'direct_touch',
+        action: action,
+        norm_x: normX,
+        norm_y: normY
+      };
+
+      sendWs(packet);
+      if (action === 'down') {
+        haptic('light');
+        const ring = document.createElement('div');
+        ring.className = 'direct-tap-ring';
+        ring.style.left = `${touch.clientX}px`;
+        ring.style.top = `${touch.clientY}px`;
+        document.body.appendChild(ring);
+        setTimeout(() => ring.remove(), 400);
+      }
+    }
+
+    // Input Dispatches
+    function sendMouseClick(btn) {
+      sendWs({ type: 'mouse_click', button: btn });
+      haptic('light');
+    }
+
+    function sendKey(keyName) {
+      sendWs({ type: 'key_press', key: keyName });
+      haptic('light');
+    }
+
+    function sendHotkey(keys) {
+      sendWs({ type: 'hotkey', keys: keys });
+      haptic('medium');
+    }
+
+    // Drawers Management
+    function openDrawer(drawerId) {
+      document.querySelectorAll('.drawer-overlay').forEach(d => d.classList.remove('active'));
+      const d = document.getElementById(drawerId);
+      if (d) {
+        d.classList.add('active');
+        if (drawerId === 'keyboardDrawer') {
+          setTimeout(() => document.getElementById('textInput').focus(), 100);
+        }
+      }
+      haptic('light');
+    }
+
+    function closeDrawer(drawerId) {
+      const d = document.getElementById(drawerId);
+      if (d) d.classList.remove('active');
+    }
+
+    function handleDrawerBackdrop(e, drawerId) {
+      if (e.target.id === drawerId) {
+        closeDrawer(drawerId);
+      }
+    }
+
+    // Typing
+    document.getElementById('textInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitTypedText();
+    });
+
+    function submitTypedText() {
+      const input = document.getElementById('textInput');
+      const val = input.value;
+      if (val) {
+        sendWs({ type: 'type_text', text: val });
+        input.value = '';
+        haptic('light');
+      }
+    }
+
+    // Settings & Presets
+    const PRESET_LABELS = {
+      auto: 'Auto Adaptive',
+      excellent: 'Ultra HD (1080p)',
+      good: 'Balanced (720p)',
+      moderate: 'Fast Mode (540p)',
+      poor: 'Low Bandwidth (360p)'
+    };
+
+    function selectPresetCard(preset) {
+      const sel = document.getElementById('presetSelect');
+      if (sel) sel.value = preset;
+      currentPreset = preset;
+      document.querySelectorAll('.preset-card').forEach((card) => {
+        card.classList.toggle('active', card.dataset.preset === preset);
+      });
+      sendStreamConfig();
+      haptic('medium');
+      showToast(`Quality: ${PRESET_LABELS[preset] || preset}`);
+    }
+
+    function applyPresetDropdown() {
+      const sel = document.getElementById('presetSelect');
+      selectPresetCard(sel.value);
+    }
+
+    let lockConfirmArmed = false;
+    let lockConfirmTimer = null;
+
+    async function executePcAction(action) {
+      if (action === 'lock' && !lockConfirmArmed) {
+        lockConfirmArmed = true;
+        const btn = document.getElementById('lockPcBtn');
+        if (btn) btn.textContent = 'Confirm Lock?';
+        showToast('Tap Lock Windows again to confirm');
+        if (lockConfirmTimer) clearTimeout(lockConfirmTimer);
+        lockConfirmTimer = setTimeout(() => {
+          lockConfirmArmed = false;
+          if (btn) btn.textContent = 'Lock Windows';
+        }, 3500);
+        return;
+      }
+
+      if (action === 'lock') {
+        lockConfirmArmed = false;
+        const btn = document.getElementById('lockPcBtn');
+        if (btn) btn.textContent = 'Lock Windows';
+      }
+
+      try {
+        const resp = await fetch('/api/system/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: authToken, action })
+        });
+        if (!resp.ok) {
+          showToast('Action failed: ' + resp.status);
+          return;
+        }
+        haptic('medium');
+        showToast(action === 'lock' ? 'Windows locked' : 'Taskbar toggled');
+      } catch (e) {
+        showToast('Network error sending command');
+      }
+    }
+
+    function updateSensitivity() {
+      const s = document.getElementById('sensRange').value;
+      sensitivity = parseFloat(s);
+      document.getElementById('sensValue').textContent = sensitivity.toFixed(1);
+    }
+
+    function sendStreamConfig() {
+      sendWs({ type: 'config', profile: currentPreset });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      connectWS();
+      updateCanvasRect();
+    });
+  </script>
+</body>
+</html>
