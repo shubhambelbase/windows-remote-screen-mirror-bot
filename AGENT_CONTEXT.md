@@ -31,7 +31,7 @@ Real-time Windows desktop screen mirror and remote control system operated via T
 ## How to Run & Test
 - Run tests: `.\.venv\Scripts\python.exe -m pytest -v` (`37 passed, 1 skipped` when optional `aiortc` is absent)
 - Launch manually: `.\.venv\Scripts\python.exe execution\main.py` (or `start_remote.bat`)
-- Windows Auto-Startup: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\TelegramRemoteStudio.vbs`
+- Windows Auto-Startup: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\TelegramRemoteStudio.lnk` -> `wscript.exe silent_start.vbs`
 
 ## Current Status
 - Status: Anti-bufferbloat low-latency upgrade completed: static idle-frame skip (`capture_frame_if_changed`), `MAX_IN_FLIGHT_FRAMES=2` `frame_ack` pacing on `/ws/stream`, and dedicated `/ws/control` WebSocket keeping RTT/inputs unblocked at full quality. Verified pytest suite + restarted live daemon.

@@ -100,16 +100,21 @@ Once running:
 
 ## ⚙️ Optional: Silent Auto-Start on Windows Boot
 
-To start the bot silently in standby mode whenever you log into Windows (zero console windows, using `pythonw.exe`):
+To start the bot silently in standby mode whenever you log into Windows (zero console windows, using `pythonw.exe`), run this in **PowerShell** inside the cloned project folder:
 
 ```powershell
-Copy-Item .\silent_start.vbs "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\TelegramRemoteStudio.vbs"
+$ws = New-Object -ComObject WScript.Shell
+$sc = $ws.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\TelegramRemoteStudio.lnk")
+$sc.TargetPath = "$env:WINDIR\System32\wscript.exe"
+$sc.Arguments = "`"$((Get-Location).Path)\silent_start.vbs`""
+$sc.WorkingDirectory = (Get-Location).Path
+$sc.Save()
 ```
 
 To remove auto-start later:
 
 ```powershell
-Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\TelegramRemoteStudio.vbs"
+Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\TelegramRemoteStudio.lnk" -ErrorAction SilentlyContinue
 ```
 
 ---

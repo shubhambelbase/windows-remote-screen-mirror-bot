@@ -46,17 +46,19 @@ class CloudflareTunnel:
         self._lock = threading.Lock()
 
     def _find_cloudflared(self) -> str:
-        """Locates cloudflared executable."""
+        """Locates cloudflared executable across PATH, WinGet Links, and Program Files."""
+        path = shutil.which("cloudflared")
+        if path:
+            return path
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
         default_paths = [
+            os.path.join(local_app_data, "Microsoft", "WinGet", "Links", "cloudflared.exe") if local_app_data else "",
             r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
             r"C:\Program Files\cloudflared\cloudflared.exe",
         ]
         for candidate in default_paths:
-            if os.path.exists(candidate):
+            if candidate and os.path.exists(candidate):
                 return candidate
-        path = shutil.which("cloudflared")
-        if path:
-            return path
         return "cloudflared"
 
     def is_alive(self) -> bool:
